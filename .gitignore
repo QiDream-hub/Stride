@@ -5,3 +5,5 @@ build/
 *.dylib
 *.dll
 core
+compile_commands.json
+.cache
