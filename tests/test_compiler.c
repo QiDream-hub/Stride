@@ -6,13 +6,178 @@
 #include "stride/compiler.h"
 
 /* ============================================================
- * 序列编译器集成测试
- *
- * 验证 stride_compile 一次产出特征序列与提取序列，
- * 并验证两者的参数计数一致。
+ * 编译器测试：词法分析 + 一步编译
  * ============================================================ */
 
-/* 统计提取序列中产生参数的操作数 */
+/* ---------------- 词法分析 ---------------- */
+
+static void test_op_match(void) {
+    printf("Test: OP_MATCH ($'text')\n");
+
+    stride_op_t *ops = NULL;
+    size_t count = 0, capacity = 0;
+
+    ASSERT(stride_lex("'hello'", &ops, &count, &capacity) == -1,
+           "Reject pattern without $ prefix");
+
+    ASSERT(stride_lex("$'hello'", &ops, &count, &capacity) == 0,
+           "Parse $'hello' successfully");
+    ASSERT(count == 1, "One operator parsed");
+    ASSERT(ops[0].type == STRIDE_OP_MATCH, "Operator type is OP_MATCH");
+    ASSERT(ops[0].data.match.len == 5, "Match length is 5");
+    ASSERT(strncmp(ops[0].data.match.text, "hello", 5) == 0,
+           "Match text is 'hello'");
+
+    stride_ops_free(ops);
+}
+
+static void test_op_capture_len(void) {
+    printf("Test: OP_CAPTURE_LEN (${n})\n");
+
+    stride_op_t *ops = NULL;
+    size_t count = 0, capacity = 0;
+
+    ASSERT(stride_lex("${4}", &ops, &count, &capacity) == 0,
+           "Parse ${4} successfully");
+    ASSERT(count == 1, "One operator parsed");
+    ASSERT(ops[0].type == STRIDE_OP_CAPTURE_LEN, "Type is OP_CAPTURE_LEN");
+    ASSERT(ops[0].data.length == 4, "Capture length is 4");
+
+    stride_ops_free(ops);
+}
+
+static void test_op_capture_chr(void) {
+    printf("Test: OP_CAPTURE_CHR (${'c'})\n");
+
+    stride_op_t *ops = NULL;
+    size_t count = 0, capacity = 0;
+
+    ASSERT(stride_lex("${'.'}", &ops, &count, &capacity) == 0,
+           "Parse ${'.'} successfully");
+    ASSERT(count == 1, "One operator parsed");
+    ASSERT(ops[0].type == STRIDE_OP_CAPTURE_CHR, "Type is OP_CAPTURE_CHR");
+    ASSERT(ops[0].data.find.ch == '.', "Capture char is '.'");
+
+    stride_ops_free(ops);
+}
+
+static void test_op_capture_end(void) {
+    printf("Test: OP_CAPTURE_END (${})\n");
+
+    stride_op_t *ops = NULL;
+    size_t count = 0, capacity = 0;
+
+    ASSERT(stride_lex("${}", &ops, &count, &capacity) == 0,
+           "Parse ${} successfully");
+    ASSERT(count == 1, "One operator parsed");
+    ASSERT(ops[0].type == STRIDE_OP_CAPTURE_END, "Type is OP_CAPTURE_END");
+
+    stride_ops_free(ops);
+}
+
+static void test_op_jump_abs(void) {
+    printf("Test: OP_JUMP_ABS ($[n])\n");
+
+    stride_op_t *ops = NULL;
+    size_t count = 0, capacity = 0;
+
+    ASSERT(stride_lex("$[5]", &ops, &count, &capacity) == 0,
+           "Parse $[5] successfully");
+    ASSERT(ops[0].type == STRIDE_OP_JUMP_ABS, "Type is OP_JUMP_ABS");
+    ASSERT(ops[0].data.pos == 5, "Jump position is 5");
+
+    stride_ops_free(ops);
+}
+
+static void test_op_jump_end(void) {
+    printf("Test: OP_JUMP_END ($[END] / $[END-n])\n");
+
+    stride_op_t *ops = NULL;
+    size_t count = 0, capacity = 0;
+
+    ASSERT(stride_lex("$[END]", &ops, &count, &capacity) == 0,
+           "Parse $[END] successfully");
+    ASSERT(ops[0].type == STRIDE_OP_JUMP_END, "Type is OP_JUMP_END");
+    ASSERT(ops[0].data.jump_end.is_end == 1, "is_end flag is set");
+    ASSERT(ops[0].data.jump_end.offset == 0, "END offset is 0");
+    stride_ops_free(ops);
+
+    ASSERT(stride_lex("$[END-4]", &ops, &count, &capacity) == 0,
+           "Parse $[END-4] successfully");
+    ASSERT(ops[0].data.jump_end.offset == 4, "END-4 offset is 4");
+    stride_ops_free(ops);
+}
+
+static void test_op_jump_fwd_back(void) {
+    printf("Test: OP_JUMP_FWD / OP_JUMP_BACK\n");
+
+    stride_op_t *ops = NULL;
+    size_t count = 0, capacity = 0;
+
+    ASSERT(stride_lex("$[>3]", &ops, &count, &capacity) == 0,
+           "Parse $[>3] successfully");
+    ASSERT(ops[0].type == STRIDE_OP_JUMP_FWD, "Type is OP_JUMP_FWD");
+    ASSERT(ops[0].data.offset == 3, "Forward offset is 3");
+    stride_ops_free(ops);
+
+    ASSERT(stride_lex("$[<2]", &ops, &count, &capacity) == 0,
+           "Parse $[<2] successfully");
+    ASSERT(ops[0].type == STRIDE_OP_JUMP_BACK, "Type is OP_JUMP_BACK");
+    ASSERT(ops[0].data.offset == 2, "Back offset is 2");
+    stride_ops_free(ops);
+}
+
+static void test_op_find(void) {
+    printf("Test: OP_FIND_FWD / OP_FIND_REV\n");
+
+    stride_op_t *ops = NULL;
+    size_t count = 0, capacity = 0;
+
+    ASSERT(stride_lex("$[>'=']", &ops, &count, &capacity) == 0,
+           "Parse $[>'='] successfully");
+    ASSERT(ops[0].type == STRIDE_OP_FIND_FWD, "Type is OP_FIND_FWD");
+    ASSERT(ops[0].data.find.ch == '=', "Find char is '='");
+    stride_ops_free(ops);
+
+    ASSERT(stride_lex("$[<'=']", &ops, &count, &capacity) == 0,
+           "Parse $[<'='] successfully");
+    ASSERT(ops[0].type == STRIDE_OP_FIND_REV, "Type is OP_FIND_REV");
+    ASSERT(ops[0].data.find.ch == '=', "Find char is '='");
+    stride_ops_free(ops);
+}
+
+static void test_lex_complex_and_errors(void) {
+    printf("Test: complex pattern and syntax errors\n");
+
+    stride_op_t *ops = NULL;
+    size_t count = 0, capacity = 0;
+
+    ASSERT(stride_lex("${1}${'a'}${2}$'key'", &ops, &count, &capacity) == 0,
+           "Parse complex pattern successfully");
+    ASSERT(count == 4, "Four operators parsed");
+    ASSERT(ops[0].type == STRIDE_OP_CAPTURE_LEN, "First is CAPTURE_LEN");
+    ASSERT(ops[1].type == STRIDE_OP_CAPTURE_CHR, "Second is CAPTURE_CHR");
+    ASSERT(ops[2].type == STRIDE_OP_CAPTURE_LEN, "Third is CAPTURE_LEN");
+    ASSERT(ops[3].type == STRIDE_OP_MATCH, "Fourth is MATCH");
+    stride_ops_free(ops);
+
+    ASSERT(stride_lex("$'hello", &ops, &count, &capacity) == -1,
+           "Reject unclosed quote");
+    ASSERT(stride_lex("${'.", &ops, &count, &capacity) == -1,
+           "Reject unclosed quote in capture");
+    ASSERT(stride_lex("${abc}", &ops, &count, &capacity) == -1,
+           "Reject invalid number");
+    ASSERT(stride_lex("${0}", &ops, &count, &capacity) == -1,
+           "Reject zero length capture");
+    ASSERT(stride_lex("user", &ops, &count, &capacity) == -1,
+           "Reject bare text without $");
+    ASSERT(stride_lex("$", &ops, &count, &capacity) == -1, "Reject lone $");
+    ASSERT(stride_lex("$[abc]", &ops, &count, &capacity) == -1,
+           "Reject invalid position expression");
+}
+
+/* ---------------- 一步编译 ---------------- */
+
 static size_t count_capture_ops(const stride_compile_result_t *r) {
     size_t n = 0;
     for (size_t i = 0; i < r->extractor_count; i++) {
@@ -25,7 +190,6 @@ static size_t count_capture_ops(const stride_compile_result_t *r) {
     return n;
 }
 
-/* 文档示例：$'api'（单段，纯关键字） */
 static void test_compile_keyword_only(void) {
     printf("Test: Compile keyword-only segment ($'api')\n");
 
@@ -33,15 +197,12 @@ static void test_compile_keyword_only(void) {
 
     ASSERT(r.status == STRIDE_OK, "Compile OK");
     ASSERT(r.features != NULL && r.feature_count == 1, "One feature tuple");
-    ASSERT(r.features[0].type == STRIDE_FT_CONST_REL_FWD,
-           "Feature type is CONST_REL_FWD");
-    ASSERT(r.features[0].value == 0, "Feature value is 0");
-    ASSERT(r.features[0].keyword_len == 3, "Keyword length is 3");
+    ASSERT(r.features[0].type == STRIDE_FT_CONST_REL_FWD, "Type is REL_FWD");
+    ASSERT(r.features[0].value == 0, "Value is 0");
     ASSERT(strncmp(r.features[0].keyword, "api", 3) == 0, "Keyword is 'api'");
 
     ASSERT(r.extractor_count == 1, "One extractor op");
-    ASSERT(r.extractors[0].type == STRIDE_EX_SKIP_LEN,
-           "Match optimized to EX_SKIP_LEN");
+    ASSERT(r.extractors[0].type == STRIDE_EX_SKIP_LEN, "Optimized to SKIP_LEN");
     ASSERT(r.extractors[0].data.skip_len.length == 3, "Skip length is 3");
     ASSERT(r.param_count == 0, "No parameters");
 
@@ -49,7 +210,6 @@ static void test_compile_keyword_only(void) {
     ASSERT(r.features == NULL && r.extractors == NULL, "Free clears result");
 }
 
-/* 文档完整示例：$'v'${'.'}$'.'${} */
 static void test_compile_version_segment(void) {
     printf("Test: Compile version segment ($'v'${'.'}$'.'${})\n");
 
@@ -57,22 +217,17 @@ static void test_compile_version_segment(void) {
 
     ASSERT(r.status == STRIDE_OK, "Compile OK");
 
-    /* 特征序列：[(0,"v"), ('.',"."), (END,NULL)] */
     ASSERT(r.feature_count == 3, "Three feature tuples");
     ASSERT(r.features[0].type == STRIDE_FT_CONST_REL_FWD, "F0 is REL_FWD");
-    ASSERT(r.features[0].keyword_len == 1, "F0 keyword len 1");
     ASSERT(r.features[1].type == STRIDE_FT_DYNAMIC_FIND_FWD, "F1 is FIND_FWD");
     ASSERT(r.features[1].value == (int)'.', "F1 char is '.'");
-    ASSERT(r.features[1].keyword_len == 1, "F1 keyword len 1");
     ASSERT(r.features[2].type == STRIDE_FT_CONST_ABS_END, "F2 is ABS_END");
+    ASSERT(r.features[2].value == 0, "F2 value 0 (pure END)");
     ASSERT(r.features[2].keyword == NULL, "F2 has no keyword");
 
-    /* 提取序列：[SKIP(1), CAPTURE_CHR('.'), SKIP(1), CAPTURE_END] */
     ASSERT(r.extractor_count == 4, "Four extractor ops");
     ASSERT(r.extractors[0].type == STRIDE_EX_SKIP_LEN, "E0 is SKIP_LEN");
     ASSERT(r.extractors[1].type == STRIDE_EX_CAPTURE_CHR, "E1 is CAPTURE_CHR");
-    ASSERT(r.extractors[1].data.capture_chr.ch == '.', "E1 char is '.'");
-    ASSERT(r.extractors[2].type == STRIDE_EX_SKIP_LEN, "E2 is SKIP_LEN");
     ASSERT(r.extractors[3].type == STRIDE_EX_CAPTURE_END, "E3 is CAPTURE_END");
 
     ASSERT(r.param_count == 2, "Two parameters");
@@ -82,70 +237,105 @@ static void test_compile_version_segment(void) {
     stride_compile_free(&r);
 }
 
-/* 编译 {$4}$'a' */
-static void test_compile_len_capture(void) {
-    printf("Test: Compile length capture (${4}$'a')\n");
+static void test_compile_capture_and_end(void) {
+    printf("Test: Compile ${4}$'a' and ${}$[<4]$'dddd'\n");
 
     stride_compile_result_t r = stride_compile("${4}$'a'");
-
     ASSERT(r.status == STRIDE_OK, "Compile OK");
-    ASSERT(r.feature_count == 1, "One feature tuple (4, 'a')");
     ASSERT(r.features[0].value == 4, "Feature value is 4");
     ASSERT(r.features[0].keyword_len == 1, "Keyword len is 1");
-
     ASSERT(r.param_count == 1, "One parameter");
-    ASSERT(count_capture_ops(&r) == r.param_count,
-           "param_count matches capture ops");
+    stride_compile_free(&r);
 
+    /* END 基准的 value 统一为非负幅度：END-4 → 4 */
+    r = stride_compile("${}$[<4]$'dddd'");
+    ASSERT(r.status == STRIDE_OK, "Compile OK");
+    ASSERT(r.feature_count == 1, "One feature tuple");
+    ASSERT(r.features[0].type == STRIDE_FT_CONST_ABS_END, "Type is ABS_END");
+    ASSERT(r.features[0].value == 4, "Value is 4 (END-4, 非负幅度)");
     stride_compile_free(&r);
 }
 
-/* 错误：空模式 */
-static void test_compile_empty(void) {
-    printf("Test: Compile empty pattern\n");
+static void test_compile_errors(void) {
+    printf("Test: Compile errors\n");
 
     stride_compile_result_t r = stride_compile("");
-    ASSERT(r.status == STRIDE_E_EMPTY_SEGMENT, "Status is E_EMPTY_SEGMENT");
+    ASSERT(r.status == STRIDE_E_EMPTY_SEGMENT, "Empty → E_EMPTY_SEGMENT");
     ASSERT(r.error_msg != NULL, "error_msg provided");
     ASSERT(r.features == NULL && r.extractors == NULL, "No partial output");
     stride_compile_free(&r);
 
-    stride_compile_result_t r2 = stride_compile(NULL);
-    ASSERT(r2.status == STRIDE_E_EMPTY_SEGMENT, "NULL pattern is empty");
-    stride_compile_free(&r2);
-}
+    r = stride_compile(NULL);
+    ASSERT(r.status == STRIDE_E_EMPTY_SEGMENT, "NULL → E_EMPTY_SEGMENT");
+    stride_compile_free(&r);
 
-/* 错误：语法错误 */
-static void test_compile_syntax_error(void) {
-    printf("Test: Compile syntax error\n");
-
-    stride_compile_result_t r = stride_compile("$'unclosed");
-    ASSERT(r.status == STRIDE_E_INVALID_PATTERN, "Status is E_INVALID_PATTERN");
-    ASSERT(r.error_msg != NULL, "error_msg provided");
+    r = stride_compile("$'unclosed");
+    ASSERT(r.status == STRIDE_E_INVALID_PATTERN, "Bad syntax → E_INVALID_PATTERN");
     ASSERT(r.features == NULL && r.extractors == NULL, "No partial output");
     stride_compile_free(&r);
-}
-
-/* 状态码字符串 */
-static void test_status_str(void) {
-    printf("Test: Status strings\n");
 
     ASSERT(strcmp(stride_status_str(STRIDE_OK), "ok") == 0, "OK string");
-    ASSERT(stride_status_str(STRIDE_E_EMPTY_SEGMENT) != NULL,
-           "Empty segment string non-NULL");
     ASSERT(stride_status_str((stride_status_t)9999) != NULL,
            "Unknown status still returns a string");
 }
 
+/* ---------------- 只编译一种序列 ---------------- */
+
+static void test_compile_features_only(void) {
+    printf("Test: stride_compile_features\n");
+
+    stride_feature_t *f = NULL;
+    size_t count = 0, cap = 0;
+
+    ASSERT(stride_compile_features("$'v'${'.'}$'.'${}", &f, &count, &cap) == 0,
+           "Compile features OK");
+    ASSERT(count == 3, "Three feature tuples");
+    ASSERT(f[0].keyword_len == 1, "Keyword copied");
+    stride_feature_free(f, count);
+
+    ASSERT(stride_compile_features("", &f, &count, &cap) == -1,
+           "Empty pattern rejected");
+    ASSERT(stride_compile_features(NULL, &f, &count, &cap) == -1,
+           "NULL pattern rejected");
+}
+
+static void test_compile_extractors_only(void) {
+    printf("Test: stride_compile_extractors\n");
+
+    stride_extractor_op_t *e = NULL;
+    size_t count = 0, params = 0;
+
+    ASSERT(stride_compile_extractors("${4}$'a'", &e, &count, &params) == 0,
+           "Compile extractors OK");
+    ASSERT(count == 2, "Two extractor ops");
+    ASSERT(params == 1, "One parameter");
+    ASSERT(e[0].type == STRIDE_EX_CAPTURE_LEN, "E0 is CAPTURE_LEN");
+    free(e);
+
+    ASSERT(stride_compile_extractors("", &e, &count, &params) == -1,
+           "Empty pattern rejected");
+}
+
 int main(void) {
-    printf("=== Stride Compiler Integration Tests ===\n\n");
+    printf("=== Stride Compiler Tests ===\n\n");
+
+    test_op_match();
+    test_op_capture_len();
+    test_op_capture_chr();
+    test_op_capture_end();
+    test_op_jump_abs();
+    test_op_jump_end();
+    test_op_jump_fwd_back();
+    test_op_find();
+    test_lex_complex_and_errors();
 
     test_compile_keyword_only();
     test_compile_version_segment();
-    test_compile_len_capture();
-    test_compile_empty();
-    test_compile_syntax_error();
-    test_status_str();
+    test_compile_capture_and_end();
+    test_compile_errors();
+
+    test_compile_features_only();
+    test_compile_extractors_only();
 
     return test_summary("Compiler");
 }

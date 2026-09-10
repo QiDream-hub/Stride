@@ -108,9 +108,20 @@ static void demo(const char *pattern, const char *segment) {
 
     print_compile_result(&r);
 
+    /* 特征序列匹配：只判断段是否命中，不做提取 */
+    int matched = stride_feature_match(r.features, r.feature_count, segment,
+                                       strlen(segment));
+    printf("\n特征序列匹配: %s\n", matched == 0 ? "命中" : "未命中");
+
+    if (matched != 0) {
+        stride_compile_free(&r);
+        printf("\n");
+        return;
+    }
+
     stride_extractor_t *ex =
         stride_extractor_create(r.extractors, r.extractor_count);
-    printf("\n运行提取:\n");
+    printf("运行提取:\n");
 
     if (ex) {
         stride_param_t params[16];
@@ -150,6 +161,9 @@ int main(void) {
 
     /* 回溯捕获：${}$[0]${'.'}$'.'${}  → 提取 ["document.pdf","document","pdf"] */
     demo("${}$[0]${'.'}$'.'${}", "document.pdf");
+
+    /* 匹配失败示例：段尾未对齐 */
+    demo("${4}$'-'${2}$'-'${2}", "20240315");
 
     /* 编译错误示例 */
     demo("$'unclosed", "whatever");

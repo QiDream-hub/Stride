@@ -1,7 +1,8 @@
 #ifndef STRIDE_EXTRACTOR_H
 #define STRIDE_EXTRACTOR_H
 
-#include "stride/core.h"
+#include "stride/types.h"
+
 #include <stddef.h>
 
 #ifdef __cplusplus
@@ -9,17 +10,15 @@ extern "C" {
 #endif
 
 /* ============================================================
- * Stride 提取序列模块（Extraction Sequence）
+ * Stride 提取序列（Extraction Sequence）
  *
- * 两个职责：
+ * 只依赖 types.h，不涉及特征序列。提供两件事：
  *   1. 编译：操作符序列 → 提取序列（含编译时优化）
- *   2. 运行：在段上执行提取序列，产出零拷贝参数
+ *   2. 执行：在段上运行提取序列，产出零拷贝参数
  *
  * 编译时优化：
  *   - 匹配操作 STRIDE_OP_MATCH 转换为常量偏移跳过（STRIDE_EX_SKIP_LEN）
  *   - 连续常量移动操作合并为一个
- *
- * 见《Stride 编译器设计文档》5.3 / 5.4 节。
  * ============================================================ */
 
 /**

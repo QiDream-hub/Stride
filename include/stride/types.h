@@ -1,5 +1,5 @@
-#ifndef STRIDE_CORE_H
-#define STRIDE_CORE_H
+#ifndef STRIDE_TYPES_H
+#define STRIDE_TYPES_H
 
 #include <stddef.h>
 
@@ -8,23 +8,23 @@ extern "C" {
 #endif
 
 /* ============================================================
- * Stride 核心定义（共享契约）
+ * Stride 共享类型
  *
- * 本头文件是三个模块（feature / extractor / compiler）共同依赖的
- * 唯一中立层，只包含：
- *   1. 操作符（operator）序列的数据结构 —— 语法的中间表示（IR）
- *   2. 统一的状态码 / 错误码
+ * 唯一被所有能力共同依赖的层，只包含：
+ *   1. 操作符（operator）序列的结构 —— 词法分析与后续编译的中间表示（IR）
+ *   2. 编译状态码
  *
- * 依赖方向（无环）：
+ * 各能力的依赖关系（无环）：
  *
- *              core.h
- *             /   |   \
- *   feature.h  extractor.h  grammar.h
- *             \   |   /
- *            compiler.h
+ *                types.h
+ *               /   |   \
+ *   feature.h  extractor.h  compiler.h
  *
- * 注意：Stride 与分隔符无关。段（segment）在 Stride 中就是一个
- * 不透明的字符数组，如何切分输入（例如按 '/' 切分 URL）由调用者负责。
+ * feature.h 与 extractor.h 只依赖 types.h，互不依赖；compiler.h 在
+ * 两者之上提供“模式 → 两个序列”的编排。
+ *
+ * 注意：Stride 与分隔符无关。段（segment）就是一个不透明的字符数组，
+ * 如何切分输入（例如按 '/' 切分 URL）由调用者负责。
  * ============================================================ */
 
 /* ==================== 操作符定义 ==================== */
@@ -48,8 +48,7 @@ typedef enum {
 /**
  * 操作符
  *
- * 词法分析（grammar 模块）的输出，也是特征序列编译器与
- * 提取序列编译器的输入。
+ * 词法分析的输出，也是特征序列编译器与提取序列编译器的输入。
  *
  * 注意：对于 STRIDE_OP_MATCH，data.match.text 指向调用者传入的
  * pattern 字符串内部，不拥有所有权。
@@ -99,7 +98,7 @@ typedef enum {
  * @return 静态字符串，永不为 NULL
  *
  * 以 static inline 提供，避免为共享层引入额外的编译单元，
- * 使 feature / extractor / compiler 三个模块保持自足。
+ * 使 feature / extractor / compiler 三部分保持自足，无需额外的编译单元。
  */
 static inline const char *stride_status_str(stride_status_t status) {
     switch (status) {
@@ -114,4 +113,4 @@ static inline const char *stride_status_str(stride_status_t status) {
 }
 #endif
 
-#endif /* STRIDE_CORE_H */
+#endif /* STRIDE_TYPES_H */

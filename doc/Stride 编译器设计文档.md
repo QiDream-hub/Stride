@@ -2,13 +2,13 @@
 
 **文档版本**：1.0
 **更新日期**：2026-09-04
-**适用模块**：`stride/grammar.h`（词法分析）、`stride/compiler.h`（序列编译）、`stride/feature.h`（特征序列）、`stride/extractor.h`（提取序列）
+**适用模块**：`stride/compiler.h`（词法分析与序列编译）、`stride/feature.h`（特征序列与匹配）、`stride/extractor.h`（提取序列与执行）
 
 ---
 
 > **输入模型**：Stride 只编译**单个段（segment，不透明字符数组）**的模式；按 `/` 等分隔符切分输入由调用方负责，多个段分别编译、分别执行。文中复合模式示例里的 `/` 即调用方切分边界。
 >
-> **模块归属**：编译器模块同时承担词法分析职责：`stride/grammar.h` 提供模式字符串 → 操作符序列接口，`stride/compiler.h` 提供两阶段编译入口。
+> **模块归属**：`stride/compiler.h` 同时承担词法分析与编译编排：`stride_lex()` 提供模式字符串 → 操作符序列接口，`stride_compile()` 提供一步编译入口。
 
 ---
 
@@ -65,7 +65,7 @@
 ### 3.1 操作符类型定义
 
 ```c
-/* stride/core.h */
+/* stride/types.h */
 
 typedef enum {
     STRIDE_OP_MATCH = 0,      /* 精确匹配 $'text' */
@@ -600,7 +600,7 @@ typedef struct {
  * @param out_ops        输出提取操作数组
  * @param out_count      输出提取操作数量
  * @param out_param_count 输出参数数量（产生参数的提取操作个数）
- * @return STRIDE_OK（0）成功，负值错误码失败
+ * @return 0 成功，-1 失败
  */
 int stride_extractor_compile(const stride_op_t *ops, size_t op_count,
                              stride_extractor_op_t **out_ops,
@@ -623,7 +623,7 @@ void stride_extractor_destroy(stride_extractor_t *ex);
  * @param params           参数输出数组
  * @param param_capacity   params 的容量
  * @param param_count      输出实际参数数量
- * @return STRIDE_OK（0）成功，负值错误码失败
+ * @return 0 成功，-1 失败
  */
 int stride_extractor_execute(const stride_extractor_t *ex, const char *segment, size_t segment_len,
                              stride_param_t *params, size_t param_capacity, size_t *param_count);
@@ -635,10 +635,10 @@ int stride_extractor_execute(const stride_extractor_t *ex, const char *segment, 
 
 ### 6.1 编译入口
 
-语法 / 词法模块（`stride/grammar.h`）负责模式字符串 → 操作符序列：
+词法分析（`stride/compiler.h` 的 `stride_lex`）负责模式字符串 → 操作符序列：
 
 ```c
-/* stride/grammar.h */
+/* stride/compiler.h */
 
 /**
  * 词法分析：段模式字符串 → 操作符序列
@@ -646,7 +646,7 @@ int stride_extractor_execute(const stride_extractor_t *ex, const char *segment, 
  * @param out_ops       输出操作符数组（调用方通过 stride_ops_free 释放）
  * @param out_count     输出操作符数量
  * @param out_capacity  输出数组容量
- * @return STRIDE_OK（0）成功，负值错误码失败
+ * @return 0 成功，-1 失败
  */
 int stride_lex(const char *pattern, stride_op_t **out_ops, size_t *out_count, size_t *out_capacity);
 
@@ -654,7 +654,7 @@ int stride_lex(const char *pattern, stride_op_t **out_ops, size_t *out_count, si
 void stride_ops_free(stride_op_t *ops);
 ```
 
-编译模块（`stride/compiler.h`）负责操作符序列 → 两阶段编译结果：
+编译入口（`stride/compiler.h`）负责 模式字符串 → 两阶段编译结果：
 
 ```c
 /* stride/compiler.h */

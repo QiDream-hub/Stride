@@ -343,7 +343,7 @@ typedef enum {
 
 typedef struct {
     stride_feature_type_t type;
-    int value;              /* 偏移量或字符 ASCII */
+    int value;              /* 偏移量幅度或字符 ASCII，一律非负 */
     const char *keyword;    /* 关键字，可为 NULL */
     size_t keyword_len;
 } stride_feature_t;
@@ -359,6 +359,11 @@ typedef struct {
 | `STRIDE_FT_CONST_ABS_END` | 从 END 的偏移量（`END - value`），`value ≥ 0` |
 | `STRIDE_FT_DYNAMIC_FIND_FWD` | 要查找的字符 |
 | `STRIDE_FT_DYNAMIC_FIND_REV` | 要查找的字符 |
+
+**表示约定**：C 结构中的 `value` 一律存储**非负幅度**，移动方向由 `type` 表达。
+例如 `$[<3]` 产生 `CONST_REL_BACK`、`value = 3`，匹配时向左移动 3；`$[END-4]` 产生
+`CONST_ABS_END`、`value = 4`，匹配时定位到 `END - 4`。上文表格中的 `(-n, kw)`、
+`(END-n, kw)` 是便于阅读的抽象记法。
 
 **所有权说明**：`keyword` 由特征序列模块拥有。`stride_feature_compile()` 会复制一份关键字文本（以 `'\0'` 结尾），调用方通过 `stride_feature_free()` 释放整个数组。
 
@@ -410,7 +415,7 @@ typedef struct {
  * @param out_features  输出特征数组（调用方通过 stride_feature_free 释放）
  * @param out_count     输出特征数量
  * @param out_capacity  输出数组容量
- * @return STRIDE_OK（0）成功，负值错误码失败
+ * @return 0 成功，-1 失败
  */
 int stride_feature_compile(const stride_op_t *ops, size_t op_count,
                            stride_feature_t **out_features,
@@ -422,6 +427,85 @@ int stride_feature_compile(const stride_op_t *ops, size_t op_count,
  * @param count    特征数量
  */
 void stride_feature_free(stride_feature_t *features, size_t count);
+```
+
+---
+
+## 十一、匹配接口
+
+编译出特征序列之后，由匹配器在段上执行它。匹配是纯读取操作，不产生参数、
+不修改特征序列，也不依赖提取序列。
+
+```c
+/* stride/feature.h */
+
+/**
+ * 用特征序列匹配一个段
+ * @return 0 匹配成功，-1 不匹配
+ */
+int stride_feature_match(const stride_feature_t *features, size_t count,
+                         const char *segment, size_t segment_len);
+
+/**
+ * 匹配详情（用于诊断 / 自建索引）
+ * fail_index <  count：第 fail_index 个元组失败
+ * fail_index == count：元组全部执行成功，但游标未落在段尾
+ */
+typedef struct {
+    int matched;
+    size_t fail_index;
+    size_t cursor;
+} stride_match_detail_t;
+
+int stride_feature_match_ex(const stride_feature_t *features, size_t count,
+                            const char *segment, size_t segment_len,
+                            stride_match_detail_t *out);
+```
+
+### 11.1 匹配算法
+
+维护一个游标 `cursor`，初始为 0，并始终满足 `cursor ≤ 段长度`。按顺序处理每个元组：
+
+| 元组类型 | 动作 | 失败条件 |
+|---------|------|---------|
+| `CONST_REL_FWD` | `cursor += value` | 越过段尾 |
+| `CONST_REL_BACK` | `cursor -= value` | 越过段首 |
+| `CONST_ABS_HEAD` | `cursor = value` | `value > 段长度` |
+| `CONST_ABS_END` | `cursor = 段长度 - value` | `value > 段长度` |
+| `DYNAMIC_FIND_FWD` | 从 `cursor` 向段尾找字符，命中则 `cursor = 命中位置` | 未找到 |
+| `DYNAMIC_FIND_REV` | 从 `cursor - 1` 向段首找字符（`cursor == 0` 时从段尾开始），命中则 `cursor = 命中位置` | 未找到 |
+
+移动完成后，若该元组携带关键字，则在 `cursor` 处比较关键字：比较失败即失败，
+相等则 `cursor += keyword_len`（关键字被消耗）。
+
+所有元组处理完毕后，还要求 `cursor` 正好等于段长度（**段尾对齐**），否则视为不匹配。
+
+### 11.2 与提取的一致性
+
+匹配器与提取器对“移动”的解释完全一致：同一个模式经特征序列匹配与经提取序列提取，
+游标轨迹相同。区别只在于：
+
+- 匹配阶段**验证**关键字，提取阶段只跳过关键字长度（不再重复验证）；
+- 匹配阶段丢弃捕获边界，提取阶段保留捕获边界并产出参数。
+
+因此调用顺序应为：先 `stride_feature_match()` 判定命中，再
+`stride_extractor_execute()` 提取参数。
+
+### 11.3 示例
+
+```
+模式：$'v'${'.'}$'.'${}
+特征序列：[(0,"v"), (FIND_FWD '.', "."), (END, NULL)]
+
+段 "v2.0"：
+  (0,"v")            → 游标 0，关键字 "v" 匹配，游标 1
+  (FIND_FWD '.', ".") → 从 1 找到 '.' 于 2，游标 2；关键字 "." 匹配，游标 3
+  (END, NULL)         → 游标 = 4
+  段尾对齐：4 == 4 → 匹配成功
+
+段 "v2"：
+  (0,"v")            → 游标 1
+  (FIND_FWD '.', ".") → 未找到 '.' → 匹配失败
 ```
 
 ---

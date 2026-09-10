@@ -1,51 +1,42 @@
 # ============================================================
 # Stride — 序列模式编译器
 #
-#   make            构建静态库 libstride.a
-#   make test       构建并运行全部单元测试
-#   make example    构建示例程序
-#   make run        运行示例程序
-#   make clean      清理构建产物
+#   make              构建静态库 libstride.a
+#   make test         构建并运行全部测试
+#   make example      构建示例程序
+#   make run          运行示例程序
+#   make compile-commands  用 bear 生成 compile_commands.json
+#   make clean        清理构建产物
 # ============================================================
 
 CC      ?= cc
 AR      ?= ar
 CFLAGS  ?= -Wall -Wextra -O2 -g -std=c99
-CPPFLAGS += -Iinclude \
-            -Imodules/feature/include \
-            -Imodules/extractor/include \
-            -Imodules/compiler/include
+CPPFLAGS += -Iinclude
 
 BUILD_DIR := build
 
-# ==================== 模块源文件 ====================
+# ==================== 库 ====================
 
-FEATURE_SRCS   := modules/feature/src/feature.c
-
-EXTRACTOR_SRCS := modules/extractor/src/extractor_compile.c \
-                  modules/extractor/src/extractor_execute.c
-
-COMPILER_SRCS  := modules/compiler/src/grammar.c \
-                  modules/compiler/src/compiler.c
-
-MODULE_SRCS := $(FEATURE_SRCS) $(EXTRACTOR_SRCS) $(COMPILER_SRCS)
+SRCS := src/compiler.c \
+        src/feature.c \
+        src/extractor.c
 
 LIB      := $(BUILD_DIR)/libstride.a
-LIB_OBJS := $(MODULE_SRCS:%.c=$(BUILD_DIR)/%.o)
+LIB_OBJS := $(SRCS:%.c=$(BUILD_DIR)/%.o)
 
 # ==================== 测试 ====================
 
-TEST_NAMES := test_grammar test_feature test_extractor test_compiler test_execute
-TEST_SRCS  := $(addprefix tests/,$(addsuffix .c,$(TEST_NAMES)))
+TEST_NAMES := test_compiler test_feature test_extractor
 TEST_BINS  := $(addprefix $(BUILD_DIR)/,$(TEST_NAMES))
 
 # ==================== 示例 ====================
 
 EXAMPLE_BIN := $(BUILD_DIR)/example
 
-# ==================== 构建规则 ====================
+# ==================== 规则 ====================
 
-.PHONY: all lib test example run clean
+.PHONY: all lib test example run compile-commands clean
 
 all: lib
 
@@ -59,7 +50,6 @@ $(BUILD_DIR)/%.o: %.c
 	@mkdir -p $(dir $@)
 	$(CC) $(CFLAGS) $(CPPFLAGS) -c $< -o $@
 
-# 测试可执行文件
 $(BUILD_DIR)/test_%: tests/test_%.c $(LIB)
 	@mkdir -p $(dir $@)
 	$(CC) $(CFLAGS) $(CPPFLAGS) -o $@ $< $(LIB)
@@ -85,6 +75,10 @@ test: $(TEST_BINS)
 	else \
 		echo "*** 全部测试通过 ***"; \
 	fi
+
+# 生成 compile_commands.json（供 clangd 等工具使用；文件已被 .gitignore 忽略）
+compile-commands:
+	bear -- $(MAKE) clean all
 
 clean:
 	rm -rf $(BUILD_DIR)

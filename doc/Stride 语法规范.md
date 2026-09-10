@@ -2,7 +2,7 @@
 
 **文档版本**：1.0
 **更新日期**：2026-09-04
-**适用模块**：`stride/grammar.h`（词法分析）、`stride/compiler.h`（序列编译）
+**适用模块**：`stride/compiler.h`（词法分析与序列编译）、`stride/feature.h`（匹配）、`stride/extractor.h`（提取）
 
 ---
 
