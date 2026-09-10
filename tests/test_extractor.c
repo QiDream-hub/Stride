@@ -197,7 +197,6 @@ static void test_complete_cancel(void) {
  *
  * ${}$[<4]$'dddd'：EX_CAPTURE_END 打断；其后 JUMP_BACK(4)+SKIP_LEN(4)
  * 净位移为 0，语义上是无操作，不应产生任何操作。
- * （这正是相对 URLRouter 原始实现修复的越界输出问题）
  */
 static void test_zero_net_merge_dropped(void) {
     printf("Test: Zero net merge dropped (${}$[<4]$'dddd')\n");

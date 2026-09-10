@@ -3,19 +3,12 @@
 **文档版本**：1.0
 **更新日期**：2026-09-04
 **适用模块**：`stride/grammar.h`（词法分析）、`stride/compiler.h`（序列编译）、`stride/feature.h`（特征序列）、`stride/extractor.h`（提取序列）
-**内容来源**：URLRouter 2.2 编译器设计
 
 ---
 
-> **输入模型说明（重要）**
+> **输入模型**：Stride 只编译**单个段（segment，不透明字符数组）**的模式；按 `/` 等分隔符切分输入由调用方负责，多个段分别编译、分别执行。文中复合模式示例里的 `/` 即调用方切分边界。
 >
-> Stride 是序列模式编译器（sequence-pattern compiler）子系统，只编译**单个输入单元（段 / segment）**的模式。段是一段不透明的字符数组。
->
-> 按 `/` 等分隔符切分输入是**调用方**的职责，不属于 Stride。Stride 内部不存在路由器、路由树、HTTP 方法、路由匹配、回调等概念；编译器只做"给定一个段模式字符串，产出该段的特征序列与提取序列"这一件事。多个段由调用方分别编译、分别执行。
->
-> 本文档示例中的复合模式（如 `/$'api'/$'v'${'.'}$'.'${}`）只为便于阅读，`/` 是调用方切分边界；文中凡涉及状态机演示处，均已明确标注实际处理的单段子模式。
->
-> **模块归属**：编译器模块同时承担**词法分析（grammar / lexer）**职责。`stride/grammar.h` 提供模式字符串 → 操作符序列的词法分析接口，`stride/compiler.h` 在其之上提供两阶段编译入口。
+> **模块归属**：编译器模块同时承担词法分析职责：`stride/grammar.h` 提供模式字符串 → 操作符序列接口，`stride/compiler.h` 提供两阶段编译入口。
 
 ---
 
@@ -300,7 +293,7 @@ typedef struct {
 
 **建议**：用户应主动合并相邻关键字为 `$'ddaaa'`，以获得更优性能。
 
-#### 示例8：END 位置约束（报错）
+#### 示例8：END 后接动态操作
 
 ```
 输入：$[END]${'a'}
@@ -309,9 +302,10 @@ typedef struct {
 
 状态机：
   IDLE + CONST_ABS_END(END) → HOLD(END, NULL)
-  HOLD + DYNAMIC('a') → 尝试输出 (END, NULL) 然后 HOLD('a', NULL)
-  
-  ❌ 错误：纯 END 元组后不能有其他操作（STRIDE_E_END_CONFLICT）
+  HOLD + DYNAMIC('a') → 不可相加，输出 (END, NULL)，HOLD('a', NULL)
+  扫描结束 → 输出 ('a', NULL)
+
+输出：[(END, NULL), ('a', NULL)]
 ```
 
 ---
@@ -385,13 +379,8 @@ typedef struct {
 
 #### 5.4.1 匹配关键字 → 常量偏移
 
-由于匹配阶段已验证所有关键字的正确性，提取阶段无需重复验证。
-
-| 原转换 | 优化后转换 |
-|--------|-----------|
-| `STRIDE_OP_MATCH` → `STRIDE_EX_SKIP_MATCH` | `STRIDE_OP_MATCH` → `STRIDE_EX_SKIP_LEN`（偏移量 = 文本长度） |
-
-优化后提取序列不再包含 `STRIDE_EX_SKIP_MATCH` 类型，匹配操作全部转换为常量偏移跳过。
+由于匹配阶段已验证所有关键字的正确性，提取阶段无需重复验证：
+`STRIDE_OP_MATCH` 直接转换为 `STRIDE_EX_SKIP_LEN`（跳过长度 = 文本长度）。
 
 #### 5.4.2 常量移动合并
 
@@ -827,20 +816,13 @@ typedef struct {
 
 ## 八、错误码定义
 
-状态码类型为 `stride_status_t`，成功为 `STRIDE_OK`；可通过 `stride_status_str()` 获取可读字符串。
+状态码类型为 `stride_status_t`，可通过 `stride_status_str()` 获取可读字符串。
 
-| 错误码 | 含义 | 备注 |
-|--------|------|------|
-| `STRIDE_E_INVALID_PATTERN` | 模式格式无效 | |
-| `STRIDE_E_UNCLOSED_QUOTE` | 未闭合的引号 | |
-| `STRIDE_E_INVALID_NUMBER` | 无效的数字 | |
-| `STRIDE_E_INVALID_POSITION` | 无效的位置表达式 | |
-| `STRIDE_E_EMPTY_SEGMENT` | 空的段模式 | |
-| `STRIDE_E_NO_LEADING_SLASH` | 模式不以 / 开头 | **保留/未使用**：Stride 编译单个段，段内不含前导分隔符，编译器不产生该错误 |
-| `STRIDE_E_END_CONFLICT` | END 后存在其他操作 | |
-| `STRIDE_E_END_POSITIVE_OFFSET` | END 与正数相加 | |
-| `STRIDE_E_END_DUPLICATE` | 同一持有单元内 END 重复 | |
-| `STRIDE_E_ROUTE_CONFLICT` | 特征序列冲突 | **保留/未使用**：跨模式的冲突检测由调用方负责，编译器不产生该错误 |
+| 状态码 | 含义 |
+|--------|------|
+| `STRIDE_OK` | 编译成功 |
+| `STRIDE_E_INVALID_PATTERN` | 模式格式无效（词法 / 语法错误）|
+| `STRIDE_E_EMPTY_SEGMENT` | 空的段模式 |
 
 ---
 
@@ -852,22 +834,14 @@ typedef struct {
 4. **状态机驱动**：特征序列编译使用简洁的两状态状态机
 5. **关键字合并**：关键字与当前 HOLD 元组合并后输出
 6. **动态打断**：动态操作触发当前 HOLD 输出
-7. **END 约束**：只能与负数相加，纯 END 只能在末尾
+7. **END 约束**：END 基准只能与负数相加（结果为 `END - n`，`n ≥ 0`）
 8. **HEAD 约束**：最终结果必须为 `HEAD + n`，`n ≥ 0`
 9. **保留语义**：提取序列保留完整操作语义用于参数提取
 10. **匹配优化**：匹配操作转换为常量偏移，避免重复验证
 11. **常量合并**：连续常量移动在提取序列中合并，减少运行时操作
-12. **单段编译**：一次编译只针对一个段；跨段切分、组织与冲突检测属于调用方职责
+12. **单段编译**：一次编译只针对一个段；跨段的切分与组织属于调用方职责
 
 ---
 
 **文档版本**：1.0
 **更新日期**：2026-09-04
-
-**主要变更（相对 URLRouter 2.2 源文档）**：
-- 类型、错误码与函数统一更名为 `stride_*` / `STRIDE_*` 命名空间（`op_t` → `stride_op_t`、`feature_tuple_t` → `stride_feature_t`、`extractor_op_t` → `stride_extractor_op_t`、`compile_result_t` → `stride_compile_result_t`、`pattern_compile` → `stride_compile` 等）
-- 明确编译器模块同时承担词法分析（grammar / lexer）职责，并给出 `stride_lex` / `stride_ops_free` 接口
-- 编译入口更新为 `stride_compile()` 返回 `stride_compile_result_t`（含 `features` / `extractors` / `param_count`），配套 `stride_compile_free()`
-- 去除路由器 / 路由树 / HTTP 方法 / 回调等框架概念：Stride 只编译单个段，输入切分由调用方负责
-- 保留两状态状态机、常量相加规则、关键字合并规则、END/HEAD 约束、全部编译示例、提取序列基础转换与两项编译时优化、完整错误码表
-- `STRIDE_E_NO_LEADING_SLASH` 与 `STRIDE_E_ROUTE_CONFLICT` 标注为保留、编译器未使用

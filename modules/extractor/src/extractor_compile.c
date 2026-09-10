@@ -207,15 +207,7 @@ int stride_extractor_compile(const stride_op_t *ops, size_t op_count,
                     merge_op->type = STRIDE_EX_JUMP_BACK;
                     merge_op->data.jump_back.offset = (size_t)(-merge_value);
                 }
-                /* 合并值为 0，不需要输出 */
-                /*
-                 * 修复（相对 URLRouter 原始实现）：
-                 * 原实现在此处的条件是 `merge_value != 0 || has_skip_len`，
-                 * 当净位移为 0 且包含 EX_SKIP_LEN 时（例如 $'abc'$[<3]），
-                 * 会自增 out_count 却没有给该槽位赋 type —— calloc 后的零值
-                 * 恰好等于 STRIDE_EX_CAPTURE_LEN，于是凭空多出一个长度为 0
-                 * 的参数。净位移为 0 的合并段在语义上是无操作，直接丢弃。
-                 */
+                /* 净位移为 0 的合并段是无操作，直接丢弃 */
                 if (merge_value != 0) {
                     (*out_count)++;
                 }

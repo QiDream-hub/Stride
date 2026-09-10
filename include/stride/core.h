@@ -82,24 +82,15 @@ typedef struct {
     } data;
 } stride_op_t;
 
-/* ==================== 状态码 / 错误码 ==================== */
+/* ==================== 状态码 ==================== */
 
 /**
- * 编译状态码
- * 见设计文档《Stride 编译器设计文档》错误码定义一节
+ * 编译状态码 —— 只包含编译器实际会产生的状态
  */
 typedef enum {
-    STRIDE_OK = 0,               /* 成功 */
-    STRIDE_E_INVALID_PATTERN,    /* 模式格式无效 */
-    STRIDE_E_UNCLOSED_QUOTE,     /* 未闭合的引号 */
-    STRIDE_E_INVALID_NUMBER,     /* 无效的数字 */
-    STRIDE_E_INVALID_POSITION,   /* 无效的位置表达式 */
-    STRIDE_E_EMPTY_SEGMENT,      /* 空的段模式 */
-    STRIDE_E_NO_LEADING_SLASH,   /* 模式不以 / 开头（保留，Stride 不检查）*/
-    STRIDE_E_END_CONFLICT,       /* END 后存在其他操作 */
-    STRIDE_E_END_POSITIVE_OFFSET,/* END 与正数相加 */
-    STRIDE_E_END_DUPLICATE,      /* 同一持有单元内 END 重复 */
-    STRIDE_E_ROUTE_CONFLICT      /* 路由特征序列冲突（保留，Stride 未使用）*/
+    STRIDE_OK = 0,            /* 成功 */
+    STRIDE_E_INVALID_PATTERN, /* 模式格式无效（词法 / 语法错误）*/
+    STRIDE_E_EMPTY_SEGMENT    /* 空的段模式 */
 } stride_status_t;
 
 /**
@@ -112,18 +103,10 @@ typedef enum {
  */
 static inline const char *stride_status_str(stride_status_t status) {
     switch (status) {
-        case STRIDE_OK:                    return "ok";
-        case STRIDE_E_INVALID_PATTERN:     return "invalid pattern";
-        case STRIDE_E_UNCLOSED_QUOTE:      return "unclosed quote";
-        case STRIDE_E_INVALID_NUMBER:      return "invalid number";
-        case STRIDE_E_INVALID_POSITION:    return "invalid position";
-        case STRIDE_E_EMPTY_SEGMENT:       return "empty segment";
-        case STRIDE_E_NO_LEADING_SLASH:    return "pattern does not start with '/'";
-        case STRIDE_E_END_CONFLICT:        return "operation after END";
-        case STRIDE_E_END_POSITIVE_OFFSET: return "END with positive offset";
-        case STRIDE_E_END_DUPLICATE:       return "duplicate END in hold unit";
-        case STRIDE_E_ROUTE_CONFLICT:      return "route feature conflict";
-        default:                           return "unknown status";
+        case STRIDE_OK:                return "ok";
+        case STRIDE_E_INVALID_PATTERN: return "invalid pattern";
+        case STRIDE_E_EMPTY_SEGMENT:   return "empty segment";
+        default:                       return "unknown status";
     }
 }
 
