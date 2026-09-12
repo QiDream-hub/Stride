@@ -19,7 +19,7 @@ BUILD_DIR := build
 # ==================== 库 ====================
 
 SRCS := src/compiler.c \
-        src/feature.c \
+        src/matcher.c \
         src/extractor.c
 
 LIB      := $(BUILD_DIR)/libstride.a
@@ -27,7 +27,7 @@ LIB_OBJS := $(SRCS:%.c=$(BUILD_DIR)/%.o)
 
 # ==================== 测试 ====================
 
-TEST_NAMES := test_compiler test_feature test_extractor
+TEST_NAMES := test_compiler test_matcher test_extractor
 TEST_BINS  := $(addprefix $(BUILD_DIR)/,$(TEST_NAMES))
 
 # ==================== 示例 ====================
