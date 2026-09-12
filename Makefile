@@ -18,7 +18,7 @@ BUILD_DIR := build
 
 # ==================== 库 ====================
 
-SRCS := src/compiler.c \
+SRCS := src/sequence.c \
         src/matcher.c \
         src/extractor.c
 
@@ -27,7 +27,7 @@ LIB_OBJS := $(SRCS:%.c=$(BUILD_DIR)/%.o)
 
 # ==================== 测试 ====================
 
-TEST_NAMES := test_compiler test_matcher test_extractor
+TEST_NAMES := test_sequence test_extractor
 TEST_BINS  := $(addprefix $(BUILD_DIR)/,$(TEST_NAMES))
 
 # ==================== 示例 ====================

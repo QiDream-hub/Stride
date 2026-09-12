@@ -2,38 +2,36 @@
 #define STRIDE_H
 
 /* ============================================================
- * Stride —— 轻量级步进式比特串匹配编译器
+ * Stride —— 轻量级步进式比特串匹配库
  *
- * 总入口头文件，聚合全部公共 API：
- *   - stride/types.h      共享类型：操作符 IR、二进制片段与状态码
- *   - stride/compiler.h   编译：词法分析 + 序列编译编排
- *   - stride/matcher.h    匹配序列：编译 + 匹配
- *   - stride/extractor.h  提取序列：编译 + 执行
+ * 两个原语：步长（每步多少比特）+ 比特串（比什么）。
+ * 不含语法、不含编译器：模式 → 序列的翻译由调用方（如 URLRouter）完成，
+ * Stride 只提供函数式的序列构建与通用执行引擎。
  *
- * 三件事彼此解绑：可以只用匹配序列做匹配，也可以只用提取序列做提取，
- * 互不依赖；compiler.h 提供“一次编译出两者”的便捷入口。
+ * 公共 API：
+ *   - stride/types.h     类型：比特串、参数、步进节点与序列、状态码
+ *   - stride/sequence.h  构建（尾部合并）+ 通用执行引擎
+ *   - stride/matcher.h   匹配执行入口
+ *   - stride/extractor.h 提取执行入口（单段 / 多段）
  *
- * 单位：步长以比特计；位置以步计；长度以比特计。
+ * 典型用法（调用方自行把模式翻译成构建函数调用）：
  *
- * 典型用法：
- *
- *     stride_compile_result_t r = stride_compile("$'v'${'.'}$'.'${}");
- *     if (r.status == STRIDE_OK) {
- *         int ok = stride_match_run(r.match, r.match_count, 8,
- *                                   segment, STRIDE_BITS(4));
- *         // 或用 r.extract 做提取
- *     }
- *     stride_compile_free(&r);
+ *     stride_seq_t *m = stride_seq_new();
+ *     stride_seq_step_fwd(m, 3);                     // $[>3]
+ *     stride_blob_t lit = { "ab", STRIDE_BITS(2) };
+ *     stride_seq_compare(m, &lit);                   // $'ab'
+ *     int hit = stride_match_run(m, 8, segment, STRIDE_BITS(n));
+ *     stride_seq_free(m);
  * ============================================================ */
 
 #include "stride/types.h"
-#include "stride/compiler.h"
-#include "stride/extractor.h"
+#include "stride/sequence.h"
 #include "stride/matcher.h"
+#include "stride/extractor.h"
 
-#define STRIDE_VERSION_MAJOR 2
+#define STRIDE_VERSION_MAJOR 3
 #define STRIDE_VERSION_MINOR 0
 #define STRIDE_VERSION_PATCH 0
-#define STRIDE_VERSION_STRING "2.0.0"
+#define STRIDE_VERSION_STRING "3.0.0"
 
 #endif /* STRIDE_H */

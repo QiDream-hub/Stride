@@ -1,5 +1,20 @@
 # Stride 匹配序列设计文档
 
+> **v3 API 变更提示（2026-09-11）**
+>
+> 本文档描述的是 v2 的「操作符序列 → 匹配序列（数组 + IDLE/HOLD 状态机）」编译模型。
+> v3 起：
+> - 序列改为**单链表**，构建改为**函数式**（`stride_seq_*`），合并发生在**尾部追加**时，
+>   **状态机已废弃**；
+> - **词法分析（`stride_lex`）与序列编译（`stride_match_compile` / `stride_extractor_compile`）
+>   已迁出 Stride，移入 URLRouter**（见 `URLRouter/doc/Stride/`）；
+> - Stride 只保留「序列构建 + 通用执行引擎」，匹配与提取共用 `stride_seq_run()`。
+>
+> 本文档中「元组类型 / 移动语义 / 比特串比对 / 段尾对齐」等**语义**部分仍然有效；
+> 数据结构与 API 名称请以 `include/stride/*.h` 与 [README](../README.md) 为准。
+
+---
+
 **文档版本**：2.0
 **更新日期**：2026-09-12
 **适用模块**：`stride/matcher.h`（匹配序列模块）
