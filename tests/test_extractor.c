@@ -18,9 +18,10 @@ static stride_blob_t B(const char *s) {
     return b;
 }
 
+/* 下面所有用例的步长都是 8，因此 1 步 = 1 字节 */
 static int param_eq(stride_param_t p, const char *s) {
     size_t n = strlen(s);
-    return p.bit_len == STRIDE_BITS(n) && n > 0 && memcmp(p.ptr, s, n) == 0;
+    return p.steps == n && n > 0 && memcmp(p.ptr, s, n) == 0;
 }
 
 static void test_extract_steps(void) {
@@ -35,16 +36,17 @@ static void test_extract_steps(void) {
     stride_seq_capture_steps(e, 2);
     ASSERT(stride_seq_param_count(e) == 3, "three params declared");
 
+    const char *date = "2024-03-15";
     stride_param_t p[MAX_PARAMS];
     size_t n = 0;
-    ASSERT(stride_extract_run(e, 8, "2024-03-15", STRIDE_BITS(10), p,
-                              MAX_PARAMS, &n) == 0,
+    ASSERT(stride_extract_run(e, 8, date, STRIDE_BITS(10), p, MAX_PARAMS,
+                              &n) == 0,
            "run ok");
     ASSERT(n == 3, "three params");
     ASSERT(param_eq(p[0], "2024") && param_eq(p[1], "03") &&
                param_eq(p[2], "15"),
            "values");
-    ASSERT(p[0].ptr == "2024-03-15", "zero-copy into input");
+    ASSERT(p[0].ptr == date, "zero-copy into input");
 
     size_t n2 = 0;
     ASSERT(stride_extract_run(e, 8, "2024", STRIDE_BITS(4), p, MAX_PARAMS,

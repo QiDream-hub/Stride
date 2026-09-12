@@ -28,7 +28,7 @@
 | 段长 `segment_bit_len` | 比特（`= 8 × 字节数`） |
 | 字面量长度 `bit_len` | 比特，可用 `STRIDE_BITS(nbytes)` 换算 |
 | 位置 / 偏移 `steps` | 步 |
-| 参数长度 `bit_len` | 比特 |
+| 参数长度 `steps` | **步**（比特长度 = `steps × 步长`）|
 
 段比特长度必须是步长的整数倍，否则执行失败。
 
@@ -135,7 +135,7 @@ stride_extract_run(e, 8, "2024-03-15", STRIDE_BITS(10), p, 8, &n);
 stride_seq_free(e);
 ```
 
-参数以 `stride_param_t { const void *ptr; size_t bit_len; }` 返回，**零拷贝**；
+参数以 `stride_param_t { const void *ptr; size_t steps; }` 返回，**零拷贝**，长度以**步**计；
 起始位置必须字节对齐（比特偏移为 8 的整数倍），否则捕获失败。
 
 ---
@@ -144,7 +144,7 @@ stride_seq_free(e);
 
 | 头文件 | 内容 |
 |--------|------|
-| `stride/types.h` | `stride_blob_t`、`stride_param_t`、`stride_step_t`、`stride_seq_t`、状态码 |
+| `stride/types.h` | `stride_blob_t`、`stride_param_t`、`stride_step_t`、`stride_seq_t`、状态码、`STRIDE_BITS`、`STRIDE_BLOB_CSTR` |
 | `stride/sequence.h` | `stride_seq_new/free/clear/count/param_count`；构建函数；`stride_seq_run` |
 | `stride/matcher.h` | `stride_match_run` |
 | `stride/extractor.h` | `stride_extract_run`、`stride_full_extractor_*`（多段） |

@@ -419,7 +419,7 @@ int stride_seq_run(const stride_seq_t *seq, size_t stride, const void *segment,
                     goto fail;
                 }
                 params[out_idx].ptr = seg + start_bit / 8;
-                params[out_idx].bit_len = n->act_value * stride;
+                params[out_idx].steps = n->act_value;
                 out_idx++;
                 pos += n->act_value;
                 break;
@@ -444,7 +444,7 @@ int stride_seq_run(const stride_seq_t *seq, size_t stride, const void *segment,
                     goto fail;
                 }
                 params[out_idx].ptr = seg + start_bit / 8;
-                params[out_idx].bit_len = (end - start) * stride;
+                params[out_idx].steps = end - start;
                 out_idx++;
                 pos = end;
                 break;
@@ -459,7 +459,7 @@ int stride_seq_run(const stride_seq_t *seq, size_t stride, const void *segment,
                     goto fail;
                 }
                 params[out_idx].ptr = seg + start_bit / 8;
-                params[out_idx].bit_len = segment_bit_len - start_bit;
+                params[out_idx].steps = total - pos;
                 out_idx++;
                 pos = total;
                 break;

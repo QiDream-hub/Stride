@@ -89,7 +89,8 @@ int stride_seq_capture_end(stride_seq_t *seq);
  * @param stride           执行期步长（比特/步）；0 视为 1
  * @param segment          段数据（不透明二进制）
  * @param segment_bit_len  段比特长度（必须是 stride 的整数倍）
- * @param params           参数缓冲；为 NULL 表示纯匹配（遇到捕获动作即失败）
+ * @param params           参数缓冲；为 NULL 表示纯匹配（遇到捕获动作即失败）。
+ *                         每个参数的 stride_param_t.steps 为**步数**（比特长度 = 步数 × stride）
  * @param param_capacity   params 容量
  * @param param_count      入参：已写入参数个数；出参：执行后的总数。纯匹配时可为 NULL
  * @return 0 成功；负数表示失败（-1 表示一般失败，-(i+1) 表示第 i 个节点失败）

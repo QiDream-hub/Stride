@@ -84,7 +84,7 @@ Stride 的**执行引擎不解释任何编码**，也不认识任何分隔符：
 | **位置 / 偏移** `steps` | `stride_seq_step_fwd/back()`、`abs_head/end()`、`move_value`（步类） | **步** | 比特偏移 = `步 × 步长` |
 | **`SKIP_BITS` 的 `move_value`** | `stride_seq_skip_bits()` | **比特** | 单位是比特，**与步长无关**（见 3.4） |
 | **`CAPTURE_STEPS` 的 `act_value`** | `stride_seq_capture_steps()` | **步** | 捕获 `act_value × 步长` 个比特 |
-| **参数长度** `bit_len` | `stride_param_t.bit_len` | **比特** | 引擎按 `步数 × 步长` 或「到段尾」计算 |
+| **参数长度** `steps` | `stride_param_t.steps` | **步** | 比特长度 = `steps × 步长`；捕获落点恒为步对齐，故长度总是整数步 |
 | **查找目标长度** | `stride_seq_find_fwd/rev()` 的 `target.bit_len` | **比特** | 正向查找要求是步长整数倍 |
 
 换算宏：
@@ -157,11 +157,11 @@ typedef struct {
 ```c
 typedef struct {
     const void *ptr;
-    size_t bit_len;
+    size_t steps;
 } stride_param_t;
 ```
 
-零拷贝的「指针 + 比特长度」对，直接指向**输入段内部**。约定：**参数起始位置必须字节对齐**（比特偏移是 8 的整数倍），因此 `ptr` 指向包含该比特串的第一个字节。非字节对齐的捕获会失败，而不是被「移位打包」。
+零拷贝的「指针 + **步数**」对，直接指向**输入段内部**；比特长度 = `steps × 运行期步长`。存步数而不是比特数，是因为所有捕获动作（`CAPTURE_STEPS` / `CAPTURE_UNTIL` / `CAPTURE_END`）的落点都是**步对齐**的，长度天然是整数步；这样构建期不必知道步长，**产物与步长无关**。约定：**参数起始位置必须字节对齐**（比特偏移是 8 的整数倍），因此 `ptr` 指向包含该起始比特的第一个字节。非字节对齐的捕获会失败，而不是被「移位打包」。
 
 ### 3.3 序列节点 `stride_step_t`
 
@@ -608,7 +608,7 @@ pos == total        /* 游标恰好落在段尾 */
 
 ### 6.9 参数零拷贝与字节对齐
 
-参数以 `stride_param_t { const void *ptr; size_t bit_len; }` 返回，`ptr` **直接指向输入段的内部**，没有任何拷贝。代价是一条硬约束：
+参数以 `stride_param_t { const void *ptr; size_t steps; }` 返回（长度以**步**计），`ptr` **直接指向输入段的内部**，没有任何拷贝。代价是一条硬约束：
 
 > 捕获起始的**比特偏移必须是 8 的整数倍**（`pos × stride % 8 == 0`），否则捕获失败。
 
@@ -992,12 +992,12 @@ void extract_two_segments(void) {
 
 同理，`COMPARE` 只是「这一段比特相等」，不蕴含任何编码层面的合法性。
 
-### 9.3 非字节对齐捕获无法用 (ptr, bit_len) 表达
+### 9.3 非字节对齐捕获无法用 (ptr, steps) 表达
 
-`stride_param_t` 是 `(const void *ptr, size_t bit_len)`：
+`stride_param_t` 是 `(const void *ptr, size_t steps)`：
 
 - `ptr` 只能指向**字节**；
-- `bit_len` 可以不是 8 的倍数（例如步长 1 下捕获 3 比特、`bit_len == 3`），但 `ptr` 无法表达「从某字节的第 3 比特开始」。
+- `steps` 是整数步（比特长度 = `steps × 步长`），可以很小（例如步长 1 下捕获 3 步 = 3 比特），但 `ptr` 无法表达「从某字节的第 3 比特开始」。
 
 所以引擎要求捕获**起点**字节对齐（`pos × stride % 8 == 0`），否则**直接失败**。这不是「不支持非字节对齐的捕获」，而是「无法用当前参数表示法无歧义地表达它」——与其静默地移位打包出一个语义可疑的缓冲区，不如显式失败。
 

@@ -44,15 +44,26 @@ typedef struct {
 #define STRIDE_BITS(nbytes) ((size_t)(nbytes) * 8u)
 
 /**
- * 参数 —— 零拷贝的（指针，比特长度）对，直接指向输入段内部
+ * 参数 —— 零拷贝的（指针，步数）对，直接指向输入段内部
+ *
+ * 长度单位为**步**：比特长度 = `steps × 运行期步长`。
+ * 之所以存步数而不是比特数：所有捕获动作的落点都是步对齐的，长度天然是
+ * 整数步；存步数就不必在编译期/构建期知道步长，产物与步长无关。
  *
  * 约定：参数起始位置必须字节对齐（比特偏移是 8 的整数倍），因此
- * ptr 指向包含该比特串的第一个字节。非字节对齐的捕获会失败。
+ * ptr 指向包含该起始比特的第一个字节。非字节对齐的捕获会失败。
  */
 typedef struct {
     const void *ptr;
-    size_t bit_len;
+    size_t steps;
 } stride_param_t;
+
+/**
+ * 由字符串字面量构造比特串（长度按 sizeof 计算，不含结尾 '\0'）
+ * 仅适用于字面量，例如：stride_seq_compare(seq, &STRIDE_BLOB_CSTR("ddd:"));
+ */
+#define STRIDE_BLOB_CSTR(literal) \
+    ((stride_blob_t){ (literal), STRIDE_BITS(sizeof(literal) - 1u) })
 
 /* ==================== 偏移（怎么走） ==================== */
 
