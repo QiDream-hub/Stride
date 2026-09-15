@@ -17,7 +17,7 @@ extern "C" {
  * 由 stride/sequence.h 的构建函数组装：
  *
  *     stride_seq_t *m = stride_seq_new();
- *     stride_seq_step_fwd(m, 3);                    // $[>3]
+ *     stride_seq_step_fwd(m, 3);                    // 跳过 3 字节
  *     stride_seq_compare(m, &(stride_blob_t){...}); // 在该处比对字面量
  *
  * 本头文件只提供执行入口。
@@ -26,13 +26,11 @@ extern "C" {
 /**
  * 用匹配序列匹配一个段
  * @param seq              匹配序列（只应含偏移与 COMPARE 动作）
- * @param stride           执行期步长（比特/步）；0 视为 1
  * @param segment          段数据
- * @param segment_bit_len  段比特长度
+ * @param segment_len      段总字节数
  * @return 0 匹配成功；负数表示第 |r|-1 个节点失败，或段尾未对齐
  */
-int stride_match_run(const stride_seq_t *seq, size_t stride,
-                     const void *segment, size_t segment_bit_len);
+int stride_match_run(const stride_seq_t *seq, const void *segment, size_t segment_len);
 
 #ifdef __cplusplus
 }
