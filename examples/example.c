@@ -35,7 +35,9 @@ static stride_seq_t *build_extract_date(void) {
     stride_seq_t *e = stride_seq_new();
     stride_blob_t dash = blob("-");
     stride_seq_capture_until(e, &dash);      /* ${4} 捕获到 '-' */
+    stride_seq_step_fwd(e, 1);               /* 跳过 '-' */
     stride_seq_capture_until(e, &dash);      /* ${2} 捕获到 '-' */
+    stride_seq_step_fwd(e, 1);               /* 跳过 '-' */
     stride_seq_capture_end(e);               /* ${2} 捕获到段尾 */
     return e;
 }

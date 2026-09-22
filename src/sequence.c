@@ -346,7 +346,7 @@ int stride_seq_run(const stride_seq_t *seq, const void *segment,
       size_t hit;
       if (seg_find_fwd(seg, total, start, &n->act_target, &hit)) {
         end = hit;
-        pos = hit + n->act_target.len; /* 捕获后跳过定界符 */
+        pos = hit; /* 捕获后停在定界符前，不越过 */
       } else {
         pos = total; /* 未找到则捕获到段尾 */
       }

@@ -212,7 +212,7 @@ typedef enum {
 | `STRIDE_ACT_NONE` | — | 到位后不做任何事 | 从不失败 |
 | `STRIDE_ACT_COMPARE` | `act_target` | 在游标处比对 `act_target`，成功后游标前进 `act_target.len` 字节 | 越出段尾、字节不等 |
 | `STRIDE_ACT_CAPTURE_BYTES` | `act_value` | 捕获 `act_value` **字节**并前移 | `params == NULL`、越出段尾、参数容量不足 |
-| `STRIDE_ACT_CAPTURE_UNTIL` | `act_target` | 捕获从游标到 `act_target` **首次出现位置之前**的字节；未找到则捕获到段尾。游标移到 `act_target` 首字节或段尾 | `params == NULL`、参数容量不足 |
+| `STRIDE_ACT_CAPTURE_UNTIL` | `act_target` | 捕获从游标到 `act_target` **首次出现位置之前**的字节；未找到则捕获到段尾。游标移到 `act_target` 首字节（找到时）或段尾（未找到时） | `params == NULL`、参数容量不足 |
 | `STRIDE_ACT_CAPTURE_END` | — | 捕获从游标到**段尾**的全部剩余字节，游标移到段尾 | `params == NULL`、参数容量不足 |
 
 只有 `COMPARE` 与 `NONE` **不计入**参数个数；三个捕获动作都会使 `stride_seq_t.param_count` 递增一次（见 5.3）。
@@ -509,7 +509,7 @@ int stride_seq_run(const stride_seq_t *seq, const void *segment,
 | `NONE` | 无操作 | 无 |
 | `COMPARE` | 在字节偏移 `pos` 处逐字节（`memcmp`）比对 `act_target`；`pos += act_target.len` | `act_target.len > total - pos`；字节不相等 |
 | `CAPTURE_BYTES` | `params[out_idx] = { seg + pos, act_value }`；`out_idx++`；`pos += act_value` | `params == NULL`；`act_value > total - pos`；`out_idx >= param_capacity` |
-| `CAPTURE_UNTIL` | 从 `pos` 起查找 `act_target`，`end = hit`（未找到则 `end = total`）；写 `{ seg + pos, end − pos }`；`pos = end` | `params == NULL`；`out_idx >= param_capacity` |
+| `CAPTURE_UNTIL` | 从 `pos` 起查找 `act_target`，`end = hit`（未找到则 `end = total`）；写 `{ seg + pos, end − pos }`；`pos = end`（停在定界符前） | `params == NULL`；`out_idx >= param_capacity` |
 | `CAPTURE_END` | 写 `{ seg + pos, total − pos }`；`pos = total` | `params == NULL`；`out_idx >= param_capacity` |
 
 其中 `out_idx` 的初值是 `param_count ? *param_count : 0`，因此 `param_count` 可用于在**同一次执行内跨序列**把参数连续追加到同一缓冲（多段提取正是靠这一点，见 7.4）。

@@ -29,8 +29,10 @@ static void test_extract_bytes(void) {
     /* ${4}$'-'${2}$'-'${2} */
     stride_seq_t *e = stride_seq_new();
     stride_blob_t dash = B("-");
-    stride_seq_capture_until(e, &dash);  /* 捕获 "2024"，跳过 '-' */
-    stride_seq_capture_until(e, &dash);  /* 捕获 "03"，跳过 '-' */
+    stride_seq_capture_until(e, &dash);  /* 捕获 "2024"，停在 '-' 前 */
+    stride_seq_step_fwd(e, 1);           /* 跳过 '-' */
+    stride_seq_capture_until(e, &dash);  /* 捕获 "03"，停在 '-' 前 */
+    stride_seq_step_fwd(e, 1);           /* 跳过 '-' */
     stride_seq_capture_end(e);           /* 捕获 "15" */
     ASSERT(stride_seq_param_count(e) == 3, "three params declared");
 
@@ -60,7 +62,8 @@ static void test_extract_until(void) {
     /* ${'='}${} on "name=alice" */
     stride_seq_t *e = stride_seq_new();
     stride_blob_t eq = B("=");
-    stride_seq_capture_until(e, &eq);  /* 捕获 "name"，跳过 '=' */
+    stride_seq_capture_until(e, &eq);  /* 捕获 "name"，停在 '=' 前 */
+    stride_seq_step_fwd(e, 1);         /* 跳过 '=' */
     stride_seq_capture_end(e);         /* 捕获 "alice" */
 
     stride_param_t p[MAX_PARAMS];
@@ -90,7 +93,8 @@ static void test_extract_backtrack(void) {
     stride_blob_t dot = B(".");
     stride_seq_capture_end(e);         /* 捕获 "document.pdf" */
     stride_seq_abs_head(e, 0);         /* 回到段首 */
-    stride_seq_capture_until(e, &dot); /* 捕获 "document"，跳过 '.' */
+    stride_seq_capture_until(e, &dot); /* 捕获 "document"，停在 '.' 前 */
+    stride_seq_step_fwd(e, 1);         /* 跳过 '.' */
     stride_seq_capture_end(e);         /* 捕获 "pdf" */
 
     stride_param_t p[MAX_PARAMS];
